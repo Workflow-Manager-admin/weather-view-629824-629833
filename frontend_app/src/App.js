@@ -1,47 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React, { useState, useCallback } from 'react';
+import { Container, CircularProgress, Alert } from '@mui/material';
 import './App.css';
 
-// PUBLIC_INTERFACE
+import Navbar from './components/Navbar';
+import SearchBar from './components/SearchBar';
+import WeatherCard from './components/WeatherCard';
+import ForecastCard from './components/ForecastCard';
+import { fetchWeatherByCity, fetchForecast } from './utils/api';
+
 function App() {
-  const [theme, setTheme] = useState('light');
+  const [weatherData, setWeatherData] = useState(null);
+  const [forecastData, setForecastData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [tempUnit, setTempUnit] = useState('C');
 
-  // Effect to apply theme to document element
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  const handleSearch = useCallback(async (city) => {
+    if (!city) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const [weather, forecast] = await Promise.all([
+        fetchWeatherByCity(city),
+        fetchForecast(city)
+      ]);
+      setWeatherData(weather);
+      setForecastData(forecast);
+    } catch (err) {
+      setError('Failed to fetch weather data. Please try again.');
+      console.error('Error fetching weather data:', err);
+      setWeatherData(null);
+      setForecastData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+  const handleTempUnitChange = useCallback((unit) => {
+    setTempUnit(unit);
+  }, []);
 
   return (
     <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Navbar tempUnit={tempUnit} onTempUnitChange={handleTempUnitChange} />
+      <Container className="container">
+        <SearchBar onSearch={handleSearch} />
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        
+        {loading ? (
+          <div className="loading">
+            <CircularProgress sx={{ color: 'var(--primary-color)' }} />
+          </div>
+        ) : (
+          <>
+            {weatherData && (
+              <WeatherCard 
+                data={weatherData} 
+                tempUnit={tempUnit} 
+              />
+            )}
+            {forecastData && (
+              <ForecastCard 
+                forecast={forecastData} 
+                tempUnit={tempUnit} 
+              />
+            )}
+          </>
+        )}
+      </Container>
     </div>
   );
 }
